@@ -11,6 +11,8 @@ then
 		say "Your version of gpg (1.0.6) is too buggy for testing"
 		;;
 	*)
+		say_color info >&4 "Trying to set up GPG"
+		want_trace && set -x
 		# Available key info:
 		# * Type DSA and Elgamal, size 2048 bits, no expiration date,
 		#   name and email: C O Mitter <committer@example.com>
@@ -29,15 +31,15 @@ then
 		#		> lib-gpg/ownertrust
 		mkdir ./gpghome &&
 		chmod 0700 ./gpghome &&
-		GNUPGHOME="$(pwd)/gpghome" &&
+		GNUPGHOME="$PWD/gpghome" &&
 		export GNUPGHOME &&
-		(gpgconf --kill gpg-agent >/dev/null 2>&1 || : ) &&
-		gpg --homedir "${GNUPGHOME}" 2>/dev/null --import \
-			"$TEST_DIRECTORY"/lib-gpg/keyring.gpg &&
-		gpg --homedir "${GNUPGHOME}" 2>/dev/null --import-ownertrust \
-			"$TEST_DIRECTORY"/lib-gpg/ownertrust &&
-		gpg --homedir "${GNUPGHOME}" </dev/null >/dev/null 2>&1 \
-			--sign -u committer@example.com &&
+		(gpgconf --kill gpg-agent >&3 2>&4 || : ) &&
+		gpg --homedir "${GNUPGHOME}" --import \
+			"$TEST_DIRECTORY"/lib-gpg/keyring.gpg >&3 2>&4 &&
+		gpg --homedir "${GNUPGHOME}" --import-ownertrust \
+			"$TEST_DIRECTORY"/lib-gpg/ownertrust >&3 2>&4 &&
+		gpg --homedir "${GNUPGHOME}" </dev/null \
+			--sign -u committer@example.com >&3 2>&4 &&
 		test_set_prereq GPG &&
 		# Available key info:
 		# * see t/lib-gpg/gpgsm-gen-key.in
@@ -54,28 +56,29 @@ then
 		#	gpgsm --homedir /tmp/gpghome/ \
 		#		-o t/lib-gpg/gpgsm_cert.p12 \
 		#		--export-secret-key-p12 "committer@example.com"
-		echo | gpgsm --homedir "${GNUPGHOME}" 2>/dev/null \
+		echo | gpgsm --homedir "${GNUPGHOME}" >&3 2>&4 \
 			--passphrase-fd 0 --pinentry-mode loopback \
 			--import "$TEST_DIRECTORY"/lib-gpg/gpgsm_cert.p12 &&
 
-		gpgsm --homedir "${GNUPGHOME}" 2>/dev/null -K |
+		gpgsm --homedir "${GNUPGHOME}" -K 2>&4 |
 		grep fingerprint: |
 		cut -d" " -f4 |
 		tr -d '\n' >"${GNUPGHOME}/trustlist.txt" &&
 
 		echo " S relax" >>"${GNUPGHOME}/trustlist.txt" &&
-		echo hello | gpgsm --homedir "${GNUPGHOME}" >/dev/null \
-			-u committer@example.com -o /dev/null --sign - 2>&1 &&
+		echo hello | gpgsm --homedir "${GNUPGHOME}" >&3 2>&4 \
+			-u committer@example.com -o /dev/null --sign - &&
 		test_set_prereq GPGSM
 		;;
 	esac
 fi
 
 if test_have_prereq GPG &&
-    echo | gpg --homedir "${GNUPGHOME}" -b --rfc1991 >/dev/null 2>&1
+    echo | gpg --homedir "${GNUPGHOME}" -b --rfc1991 >&3 2>&4
 then
 	test_set_prereq RFC1991
 fi
+want_trace && set +x
 
 sanitize_pgp() {
 	perl -ne '
