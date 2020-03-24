@@ -52,6 +52,12 @@ test_fix () {
 
 	# find touched lines
 	$DIFF file target | sed -n -e "s/^> //p" >fixed
+	# busybox's diff(1) output unified format
+	if ! test -s fixed; then
+		$DIFF file target |
+		grep -v '^+++ target' |
+		sed -e "/^+/s/+//" >fixed
+	fi
 
 	# the changed lines are all expected to change
 	fixed_cnt=$(wc -l <fixed)
